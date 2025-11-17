@@ -4,7 +4,7 @@ import pandas as pd
 import requests
 from requests.auth import HTTPBasicAuth
 from data_loader import load_plate_csv
-from nesting_engine import shelf_nest, Sheet
+from nesting_engine import nest_plates, Sheet
 from visualiser import draw_sheet
 from label_generator import generate_labels_pdf
 
@@ -209,7 +209,7 @@ if st.button("Nest Kickplates Now"):
         sheets.append(Sheet(1200, 2400, f"Sheet-{i+1}"))
 
     # Run the nesting engine
-    sheets, unplaced = shelf_nest(plates, sheets)
+    sheets, unplaced = nest_nest(plates, sheets)
 
     # Out of stock message
     if unplaced:
