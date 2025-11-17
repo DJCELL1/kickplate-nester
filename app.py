@@ -181,6 +181,7 @@ for i in range(offcuts_num):
 
 
 # ---------------------------------------------------
+# ---------------------------------------------------
 # RUN NESTING
 # ---------------------------------------------------
 st.subheader("🧩 Run Nesting")
@@ -191,23 +192,25 @@ if st.button("Nest Kickplates Now"):
         st.error("No kickplates to nest.")
         st.stop()
 
-    # Convert combined_df → Plate objects
-    csv_bytes = combined_df.to_csv(index=False).encode()
-    plates = load_plate_csv(pd.compat.StringIO(combined_df.to_csv(index=False)))
+    # Convert combined_df → Plate objects safely using StringIO
+    csv_buffer = StringIO(combined_df.to_csv(index=False))
+    plates = load_plate_csv(csv_buffer)
 
     # Build sheet list
     sheets = []
 
+    # Add offcuts first
     for i, (w, h) in enumerate(offcuts):
         sheets.append(Sheet(w, h, f"Offcut-{i+1}"))
 
+    # Add full sheets
     for i in range(full_sheets):
         sheets.append(Sheet(1200, 2400, f"Sheet-{i+1}"))
 
-    # Nesting
+    # Run the nesting engine
     sheets, unplaced = shelf_nest(plates, sheets)
 
-    # Show errors
+    # Out of stock message
     if unplaced:
         st.error("🛑 Bruv… you're out of metal. These wouldn't fit:")
         for p in unplaced:
@@ -215,7 +218,7 @@ if st.button("Nest Kickplates Now"):
 
         st.write(f"You need **{len(unplaced)} extra sheets**.")
 
-    # Show visuals
+    # Display sheet diagrams
     st.subheader("📊 Sheet Layouts")
 
     for s in sheets:
