@@ -2,64 +2,50 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 import numpy as np
 
-# Pastel colour palette for the cuts
+# Pastel colour palette
 PASTEL_COLORS = [
-    "#A7D2CB",  # mint
-    "#F4BFBF",  # pastel red
-    "#E5E5E5",  # light grey
-    "#95D1CC",  # teal mint
-    "#F7E6C4",  # cream yellow
-    "#E8FFD9",  # pale green
-    "#C7D3FF",  # blue pastel
-    "#FFD6A5",  # peach pastel
+    "#A7D2CB", "#F4BFBF", "#E5E5E5", "#95D1CC",
+    "#F7E6C4", "#E8FFD9", "#C7D3FF", "#FFD6A5"
 ]
 
-
 def get_color_for_plate(plate):
-    """Consistent colour assignment per plate size."""
     key = (plate.width, plate.height)
     return PASTEL_COLORS[hash(key) % len(PASTEL_COLORS)]
 
-
 def draw_sheet(sheet):
-    """Draw a landscape, ultra-clean, proportional layout with stock border and pastel cuts."""
-
-    # ---------- FIGURE SETUP ----------
-    # Landscape size (smaller but readable)
+    """Landscape, proportional, pastel layout with dashed stock border."""
+    
     fig, ax = plt.subplots(figsize=(10, 5))
 
-    # Neutral background
     ax.set_facecolor("#FAFAFA")
     plt.rcParams["font.family"] = "DejaVu Sans"
     plt.rcParams["font.size"] = 9
 
-    # ---------- PROPORTIONAL SCALING ----------
-    # Fit the sheet proportionally into the figure
-    target_width = 800
+    # Scale sheet proportionally
+    target_width = 850
     scale = target_width / sheet.width
     scaled_width = sheet.width * scale
     scaled_height = sheet.height * scale
 
-    # Margin around the sheet for breathing room
     margin = 30
-
     ax.set_xlim(-margin, scaled_width + margin)
     ax.set_ylim(-margin, scaled_height + margin)
     ax.invert_yaxis()
 
-    # ---------- DRAW STOCK SHEET BORDER ----------
+    # ----- STOCK BORDER (DASHED) -----
     sheet_border = FancyBboxPatch(
         (0, 0),
         scaled_width,
         scaled_height,
-        boxstyle="round,pad=0.5",
-        linewidth=1.6,
-        edgecolor="#222",
-        facecolor="none"
+        boxstyle="round,pad=0.4",
+        linewidth=1.4,
+        edgecolor="#444",
+        facecolor="none",
+        linestyle="--"   # dashed outline
     )
     ax.add_patch(sheet_border)
 
-    # ---------- SHEET TITLE HEADER ----------
+    # Header
     ax.text(
         scaled_width / 2,
         -20,
@@ -76,17 +62,13 @@ def draw_sheet(sheet):
         )
     )
 
-    # ---------- DRAW EACH CUT INSIDE THE SHEET ----------
+    # Draw each nested plate
     for p in sheet.placements:
-        color = get_color_for_plate(p)
-
-        # Scale positions and sizes
         x = p.x * scale
         y = p.y * scale
         w = p.width * scale
         h = p.height * scale
 
-        # Rounded pastel rectangle for the cut
         rect = FancyBboxPatch(
             (x, y),
             w,
@@ -94,44 +76,35 @@ def draw_sheet(sheet):
             boxstyle="round,pad=0.3",
             linewidth=1.2,
             edgecolor="#444",
-            facecolor=color,
+            facecolor=get_color_for_plate(p),
         )
         ax.add_patch(rect)
 
-        # ---------- GRAIN HATCH ----------
+        # Grain hatch
         if p.grain:
-            if p.height > p.width:
-                hatch_style = "//"   # vertical grain feel
-            else:
-                hatch_style = "\\\\"  # horizontal grain feel
-
+            hatch_style = "//" if p.height > p.width else "\\\\"
             hatch_rect = FancyBboxPatch(
-                (x, y),
-                w,
-                h,
+                (x, y), w, h,
                 boxstyle="round,pad=0.3",
                 linewidth=0,
                 facecolor="none",
                 hatch=hatch_style,
-                edgecolor="none"
+                edgecolor="none",
             )
             ax.add_patch(hatch_rect)
 
-        # ---------- LABEL ON EACH CUT ----------
+        # Label
         label = f"{p.door}\n{p.width} × {p.height}"
-
         ax.text(
-            x + w / 2,
-            y + h / 2,
+            x + w/2,
+            y + h/2,
             label,
             ha="center",
             va="center",
             fontsize=8.5,
             weight="bold",
-            color="#222"
+            color="#222",
         )
 
-    # ---------- CLEAN LOOK ----------
     ax.axis("off")
-
     return fig
