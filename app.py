@@ -13,7 +13,7 @@ from label_generator import generate_labels_pdf
 # ---------------------------------------------------
 # PAGE CONFIG
 # ---------------------------------------------------
-st.set_page_config(page_title="Kickplate Nester", layout="wide")
+st.set_page_config(page_title="HDL Kickplate Nester", layout="wide")
 st.title("Kickplate Nester – Q Reference → Contacts API")
 
 
