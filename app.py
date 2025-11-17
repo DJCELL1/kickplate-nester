@@ -209,7 +209,7 @@ if st.button("Nest Kickplates Now"):
         sheets.append(Sheet(1200, 2400, f"Sheet-{i+1}"))
 
     # Run the nesting engine
-    sheets, unplaced = nest_nest(plates, sheets)
+    sheets, unplaced = nest_plates(plates, sheets)
 
     # Out of stock message
     if unplaced:
