@@ -14,20 +14,20 @@ from label_generator import generate_labels_pdf
 # PAGE CONFIG
 # ---------------------------------------------------
 st.set_page_config(page_title="Kickplate Nester", layout="wide")
-st.title("Kickplate Nester – Auto Q Detection + Contacts API")
+st.title("Kickplate Nester – Q Reference → Contacts API")
 
 
 # ---------------------------------------------------
-# DOWNLOAD TEMPLATE CSV
+# TEMPLATE CSV DOWNLOAD
 # ---------------------------------------------------
 st.subheader("📄 Download CSV Template")
 
 template_df = pd.DataFrame({
+    "q_reference": ["Q33515B"],
     "door": ["D01"],
     "width": [300],
     "height": [800],
-    "grain": ["TRUE"],
-    "company": ["Murrays Bay Intermediate School"]  # optional
+    "grain": ["TRUE"]
 })
 
 st.download_button(
@@ -41,8 +41,9 @@ st.download_button(
 # ---------------------------------------------------
 # UPLOAD CSV
 # ---------------------------------------------------
-st.subheader("📤 Upload CSV File")
-uploaded = st.file_uploader("Upload kickplate CSV", type=["csv"])
+st.subheader("📤 Upload Kickplate CSV")
+
+uploaded = st.file_uploader("Upload CSV", type=["csv"])
 
 uploaded_df = None
 
@@ -58,14 +59,14 @@ if uploaded:
 # ---------------------------------------------------
 # MANUAL ENTRY TABLE
 # ---------------------------------------------------
-st.subheader("✍️ Manual Kickplate Entry")
+st.subheader("✍️ Manual Entry (Optional)")
 
 empty_df = pd.DataFrame({
+    "q_reference": [""] * 20,
     "door": [""] * 20,
     "width": [0] * 20,
     "height": [0] * 20,
-    "grain": [False] * 20,
-    "company": [""] * 20  # optional for lookup
+    "grain": [False] * 20
 })
 
 manual_df = st.data_editor(
@@ -76,6 +77,7 @@ manual_df = st.data_editor(
 )
 
 manual_clean = manual_df[
+    (manual_df["q_reference"] != "") &
     (manual_df["door"] != "") &
     (manual_df["width"] > 0) &
     (manual_df["height"] > 0)
@@ -102,28 +104,31 @@ if len(manual_clean) > 0:
 if len(combined_df) == 0:
     st.info("Upload a CSV or enter manual entries to continue.")
 else:
-    st.success("Combined Data Ready")
+    st.success("Combined Data")
     st.dataframe(combined_df, height=300)
 
 
 # ---------------------------------------------------
-# CIN7 CONTACTS API LOOKUP
+# CIN7 CONTACTS API (Q LOOKUP)
 # ---------------------------------------------------
-def fetch_job_details(search_term):
+def fetch_job_details_from_q(q_ref):
     """
-    Search Cin7 Contacts API by company name or partial project,
-    automatically extract:
+    Look up job info in Cin7 Contacts API using Q reference.
+    Example Q: Q33515B
+    Extracts:
       - Q reference
       - Project name
       - Company
       - Account number
     """
-    if not search_term:
+    if not q_ref:
         return None
+
+    search = q_ref.strip()
 
     url = (
         "https://api.cin7.com/api/v1/Contacts?"
-        f"where=FirstName~%27%25{search_term}%25%27"
+        f"where=FirstName~%27%25{search}%25%27"
     )
 
     try:
@@ -140,24 +145,14 @@ def fetch_job_details(search_term):
             return None
 
         contact = data[0]
-
         fullname = contact.get("firstName", "")
         company = contact.get("company")
         account = contact.get("accountNumber")
 
-        # Extract Q ref (before space or dash)
-        if " " in fullname:
-            q_ref = fullname.split(" ")[0].split("-")[0].strip()
-        elif "-" in fullname:
-            q_ref = fullname.split("-")[0].strip()
-        else:
-            q_ref = fullname.strip()
-
-        # Extract project name (after dash)
+        # Extract project name (text after dash)
+        project = ""
         if "-" in fullname:
             project = fullname.split("-", 1)[1].strip()
-        else:
-            project = ""
 
         return {
             "q_reference": q_ref,
@@ -171,41 +166,40 @@ def fetch_job_details(search_term):
 
 
 # ---------------------------------------------------
-# FETCH JOB DETAILS
+# FETCH JOB DETAILS BUTTON
 # ---------------------------------------------------
 st.subheader("🔍 Fetch Job Info From Contacts API")
 
 if st.button("Fetch Job Info"):
+    if "q_reference" not in combined_df.columns:
+        st.error("CSV must contain 'q_reference' column.")
+        st.stop()
+
     job_info_results = []
 
-    # Determine lookup method
-    if "company" in combined_df.columns:
-        lookup_col = "company"
-    else:
-        lookup_col = "door"  # worst-case fallback
-
     for _, row in combined_df.iterrows():
-        key = str(row.get(lookup_col, "")).strip()
-        info = fetch_job_details(key)
+        q = str(row["q_reference"]).strip()
+        info = fetch_job_details_from_q(q)
         job_info_results.append(info)
 
     combined_df["job_details"] = job_info_results
 
-    st.success("Job info loaded from Contacts API!")
+    st.success("Job info retrieved from Contacts API!")
     st.dataframe(combined_df, height=300)
 
 
 # ---------------------------------------------------
-# STOCK & OFFCUTS
+# STOCK + OFFCUTS
 # ---------------------------------------------------
 st.subheader("📦 Stock Available")
 
 full_sheets = st.number_input(
     "Full sheets (1200×2400)",
-    min_value=0, value=2
+    min_value=0,
+    value=2
 )
 
-offcuts_num = st.number_input("How many offcuts?", 0, 10)
+offcuts_num = st.number_input("Number of Offcuts", 0, 20)
 
 offcuts = []
 for i in range(offcuts_num):
@@ -217,7 +211,7 @@ for i in range(offcuts_num):
 # ---------------------------------------------------
 # RUN NESTING
 # ---------------------------------------------------
-st.subheader("🧩 Run Nesting")
+st.subheader("🧩 Run Nesting Optimiser")
 
 if st.button("Start Nesting"):
 
@@ -228,11 +222,13 @@ if st.button("Start Nesting"):
     csv_buffer = StringIO(combined_df.to_csv(index=False))
     plates = load_plate_csv(csv_buffer)
 
-    # Build sheets
     sheets = []
+
+    # Add offcuts
     for i, (w, h) in enumerate(offcuts):
         sheets.append(Sheet(w, h, f"Offcut-{i+1}"))
 
+    # Add full sheets
     for i in range(full_sheets):
         sheets.append(Sheet(1200, 2400, f"Sheet-{i+1}"))
 
@@ -240,10 +236,12 @@ if st.button("Start Nesting"):
     sheets, unplaced = nest_plates(plates, sheets)
 
     if unplaced:
-        st.error("Some plates could not fit:")
+        st.error("These plates could not fit:")
         for p in unplaced:
             st.write(f"- {p.door} ({p.width}×{p.height})")
+        st.write(f"Total: {len(unplaced)} unplaced items")
 
+    # Visual layouts
     st.subheader("📊 Layouts")
 
     for s in sheets:
