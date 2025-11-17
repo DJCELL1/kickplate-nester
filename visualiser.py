@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 from matplotlib.patches import FancyBboxPatch
 import numpy as np
 
-# Pastel colour palette
+# Pastel colour palette for the cuts
 PASTEL_COLORS = [
     "#A7D2CB",  # mint
     "#F4BFBF",  # pastel red
@@ -16,96 +16,122 @@ PASTEL_COLORS = [
 
 
 def get_color_for_plate(plate):
-    """Assign consistent color based on plate size."""
+    """Consistent colour assignment per plate size."""
     key = (plate.width, plate.height)
-    idx = (hash(key) % len(PASTEL_COLORS))
-    return PASTEL_COLORS[idx]
+    return PASTEL_COLORS[hash(key) % len(PASTEL_COLORS)]
 
 
 def draw_sheet(sheet):
-    """Draw a clean, modern, pastel coloured sheet layout with grain hatching."""
+    """Draw a landscape, ultra-clean, proportional layout with stock border and pastel cuts."""
 
-    fig, ax = plt.subplots(figsize=(6, 10))
+    # ---------- FIGURE SETUP ----------
+    # Landscape size (smaller but readable)
+    fig, ax = plt.subplots(figsize=(10, 5))
 
-    # Margin around the sheet
-    margin = 20
-    ax.set_xlim(-margin, sheet.width + margin)
-    ax.set_ylim(-margin, sheet.height + margin)
-    ax.invert_yaxis()
-
-    # Clean theme
+    # Neutral background
     ax.set_facecolor("#FAFAFA")
     plt.rcParams["font.family"] = "DejaVu Sans"
     plt.rcParams["font.size"] = 9
 
-    # Sheet title bar
+    # ---------- PROPORTIONAL SCALING ----------
+    # Fit the sheet proportionally into the figure
+    target_width = 800
+    scale = target_width / sheet.width
+    scaled_width = sheet.width * scale
+    scaled_height = sheet.height * scale
+
+    # Margin around the sheet for breathing room
+    margin = 30
+
+    ax.set_xlim(-margin, scaled_width + margin)
+    ax.set_ylim(-margin, scaled_height + margin)
+    ax.invert_yaxis()
+
+    # ---------- DRAW STOCK SHEET BORDER ----------
+    sheet_border = FancyBboxPatch(
+        (0, 0),
+        scaled_width,
+        scaled_height,
+        boxstyle="round,pad=0.5",
+        linewidth=1.6,
+        edgecolor="#222",
+        facecolor="none"
+    )
+    ax.add_patch(sheet_border)
+
+    # ---------- SHEET TITLE HEADER ----------
     ax.text(
-        sheet.width / 2,
-        -margin + 5,
+        scaled_width / 2,
+        -20,
         f"{sheet.name}   ({sheet.width} × {sheet.height})",
         ha="center",
-        va="top",
+        va="bottom",
         fontsize=12,
         weight="bold",
-        color="#333",
+        color="#222",
         bbox=dict(
-            boxstyle="round,pad=0.4",
+            boxstyle="round,pad=0.3",
             facecolor="#E8E8E8",
             edgecolor="#BBBBBB"
-        ),
+        )
     )
 
-    # Draw each plate
+    # ---------- DRAW EACH CUT INSIDE THE SHEET ----------
     for p in sheet.placements:
         color = get_color_for_plate(p)
 
-        # Rounded rectangle for the plate
+        # Scale positions and sizes
+        x = p.x * scale
+        y = p.y * scale
+        w = p.width * scale
+        h = p.height * scale
+
+        # Rounded pastel rectangle for the cut
         rect = FancyBboxPatch(
-            (p.x, p.y),
-            p.width,
-            p.height,
+            (x, y),
+            w,
+            h,
             boxstyle="round,pad=0.3",
             linewidth=1.2,
-            edgecolor="#555",
+            edgecolor="#444",
             facecolor=color,
         )
         ax.add_patch(rect)
 
-        # Grain hatch if required
+        # ---------- GRAIN HATCH ----------
         if p.grain:
-            # Hatch angle depends on orientation
             if p.height > p.width:
-                hatch = "//"   # vertical plates
+                hatch_style = "//"   # vertical grain feel
             else:
-                hatch = "\\\\"  # horizontal plates
+                hatch_style = "\\\\"  # horizontal grain feel
 
             hatch_rect = FancyBboxPatch(
-                (p.x, p.y),
-                p.width,
-                p.height,
+                (x, y),
+                w,
+                h,
                 boxstyle="round,pad=0.3",
                 linewidth=0,
                 facecolor="none",
-                hatch=hatch,
+                hatch=hatch_style,
                 edgecolor="none"
             )
             ax.add_patch(hatch_rect)
 
-        # Label text inside plate
+        # ---------- LABEL ON EACH CUT ----------
         label = f"{p.door}\n{p.width} × {p.height}"
 
         ax.text(
-            p.x + p.width / 2,
-            p.y + p.height / 2,
+            x + w / 2,
+            y + h / 2,
             label,
             ha="center",
             va="center",
-            fontsize=9,
-            color="#333",
-            weight="bold"
+            fontsize=8.5,
+            weight="bold",
+            color="#222"
         )
 
-    # Hide axis lines
+    # ---------- CLEAN LOOK ----------
     ax.axis("off")
 
     return fig
